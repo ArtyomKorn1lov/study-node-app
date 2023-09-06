@@ -17,43 +17,84 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
 app.get('/api/messages/all', (req, res) => {
-  connection.query('SELECT * FROM Message LEFT JOIN Users ON Message.UserId = Users.Id', (err, rows, fields) => {
-    console.log(rows);
-    if (err) throw err;
+  connection.query('SELECT Message.Id, Text, Date, UserId, Name FROM Message LEFT JOIN Users ON Message.UserId = Users.Id ORDER BY Date ASC, Message.Id ASC', (err, rows, fields) => {
+    if (err) {
+      res.send(err);
+      throw err;
+    };
     res.send(rows);
   })
 });
 
 app.get('/api/users/all', (req, res) => {
   connection.query('SELECT * FROM Users', (err, rows, fields) => {
-    if (err) throw err;
+    if (err) {
+      res.send(err);
+      throw err;
+    };
     res.send(rows);
   })
 });
 
 app.post('/api/messages/add', (req, res) => {
-  let data = [];
-  data = [req.body.text, req.body.date, req.body.userId];
+  if (req.body.text === undefined || req.body.text.trim("") === "") {
+    const error = "Пустое сообщение";
+    res.send(error);
+    throw error;
+  }
+  if (req.body.date === undefined) {
+    const error = "Пустая дата";
+    res.send(error);
+    throw error;
+  }
+  if (req.body.userId === undefined || req.body.userId <= 0) {
+    const error = "Некорректный ID пользователя";
+    res.send(error);
+    throw error;
+  }
+  let data = [req.body.text, new Date(req.body.date), req.body.userId];
   connection.query('INSERT INTO Message (Text, Date, UserId) VALUES (?, ?, ?)', data, (err, rows, fields) => {
-    if (err) throw err;
+    if (err) {
+      res.send(err);
+      throw err;
+    };
     res.send("success");
   });
 });
 
 app.post('/api/messages/delete', (req, res) => {
-  let data = [];
-  data = [req.body.id];
+  if (req.body.id === undefined || req.body.id <= 0) {
+    const error = "Некорректный ID записи";
+    res.send(error);
+    throw error;
+  }
+  let data = [req.body.id];
   connection.query('DELETE FROM Message WHERE Id=?', data, (err, rows, fields) => {
-    if (err) throw err;
+    if (err) {
+      res.send(err);
+      throw err;
+    };
     res.send("success");
   });
 });
 
 app.post('/api/messages/update', (req, res) => {
-  let data = [];
-  data = [req.body.text, req.body.date, req.body.id];
-  connection.query('UPDATE Message SET Text=?, Date=? WHERE Id=?', data, (err, rows, fields) => {
-    if (err) throw err;
+  if (req.body.id === undefined || req.body.id <= 0) {
+    const error = "Некорректный ID записи";
+    res.send(error);
+    throw error;
+  }
+  if (req.body.text === undefined || req.body.text.trim("") === "") {
+    const error = "Пустое сообщение";
+    res.send(error);
+    throw error;
+  }
+  let data = [req.body.text, req.body.id];
+  connection.query('UPDATE Message SET Text=? WHERE Id=?', data, (err, rows, fields) => {
+    if (err) {
+      res.send(err);
+      throw err;
+    };
     res.send("success");
   });
 })
