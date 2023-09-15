@@ -2,9 +2,9 @@ const mysql = require('mysql');
 const bodyParser = require('body-parser');
 const connection = mysql.createConnection({
   host: 'localhost',
-  port: "3306",
+  port: "13306",
   user: 'root',
-  password: '',
+  password: 'dev',
   database: 'telegram_test'
 });
 connection.connect();
@@ -16,6 +16,19 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
+/* Контроллеры пользователей */
+app.get('/api/telegram/getUsers/:userId', async (req, res) => {
+  let data = [req.params.userId];
+  await connection.query('SELECT * FROM `User` WHERE Id != ?', data, (err, rows, fields) => {
+    if (err) {
+      res.send(err);
+      throw err;
+    };
+    res.send(rows);
+  });
+})
+
+/* Контроллеры сообщений */
 app.get('/api/telegram/all/:userId/:senderId/', (req, res) => {
   let data = [req.params.userId, req.params.senderId, req.params.userId, req.params.senderId];
   connection.query('SELECT * FROM Message WHERE (AuthorId = ? AND SenderId = ?) OR (SenderId = ? AND AuthorId = ?) ORDER BY CREATED ASC, Id ASC', data, (err, rows, fields) => {
