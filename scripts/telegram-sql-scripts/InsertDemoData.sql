@@ -1,9 +1,9 @@
 USE telegram_test;
 
-INSERT INTO `User` (`Id`, `Login`, `Name`, `Password`, `RefreshToken`, `TokenExpire`) VALUES
-(1, 'Artyom', 'Артём', '123', NULL, NULL),
-(2, 'Sasha', 'Саша', '123', NULL, NULL),
-(3, 'Anton', 'Антон', '123', NULL, NULL);
+INSERT INTO `User` (`Id`, `Login`, `Name`, `Password`, `AccessToken`, `RefreshToken`, `TokenExpire`, `RefreshExpire`) VALUES
+(1, 'Artyom', 'Артём', '123', NULL, NULL, NULL, NULL),
+(2, 'Sasha', 'Саша', '123', NULL, NULL, NULL, NULL),
+(3, 'Anton', 'Антон', '123', NULL, NULL, NULL, NULL);
 
 INSERT INTO `Message` (`Id`, `Text`, `CREATED`, `EDITED`, `AuthorId`, `SenderId`) VALUES
 (1, 'Привет! Как дела?', '2023-09-09 17:12:23', NULL, 1, 2),
