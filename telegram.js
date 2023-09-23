@@ -49,6 +49,22 @@ app.get('/api/telegram/getUsers/:userId', (req, res) => {
   });
 });
 
+//Получение информации о пользователе
+app.get('/api/telegram/getUserData', (req, res) => {
+  let data = [req.header('login')];
+  connection.query('SELECT Id, Login, Name, AccessToken FROM `User` WHERE Login = ?', data, (err, rows, fields) => {
+    if (err) {
+      res.send(err);
+      throw err;
+    };
+    if (rows[rows.length - 1].AccessToken !== req.header('token')) {
+      res.status(400).json({ error: "Нет доступа" });
+      return;
+    }
+    res.send(rows[rows.length - 1]);
+  });
+});
+
 //Регистрация пользователя в системе
 app.post('/api/telegram/register', (req, res) => {
   if (req.body.password !== req.body.repeat_password) {
@@ -65,6 +81,7 @@ app.post('/api/telegram/register', (req, res) => {
       res.status(400).json({ error: "Пользователь уже зарегистрирован с данным логином" });
       return;
     };
+    const tokenData = new Date();
     const response = generateTokenData(req.body.login, req.body.name);
     const data = [req.body.login, req.body.name, req.body.password, response.accessToken, response.refreshToken, response.tokenExpire, new Date(tokenData.getTime() + 10080 * 60000)];
     connection.query('INSERT INTO `User` (`Login`, `Name`, `Password`, `AccessToken`, `RefreshToken`, `TokenExpire`, `RefreshExpire`) VALUES (?, ?, ?, ?, ?, ?, ?)', data, (err, rows, fields) => {
@@ -78,7 +95,7 @@ app.post('/api/telegram/register', (req, res) => {
 });
 
 //Авторизация
-app.post('api/telegram/autorize', (req, res) => {
+app.post('/api/telegram/autorize', (req, res) => {
   const authorize = [req.body.login, req.body.password];
   connection.query('SELECT * FROM `User` WHERE Login = ? AND Password = ?', authorize, (err, rows, fields) => {
     if (err) {
@@ -90,6 +107,7 @@ app.post('api/telegram/autorize', (req, res) => {
       return;
     };
     const response = generateTokenData(req.body.login, rows[rows.length - 1].Name);
+    const tokenData = new Date();
     const data = [response.accessToken, response.refreshToken, response.tokenExpire, new Date(tokenData.getTime() + 10080 * 60000), req.body.login];
     connection.query('UPDATE User SET AccessToken=?, RefreshToken=?, TokenExpire=?, RefreshExpire=? WHERE Login=?', data, (err, rows, fields) => {
       if (err) {
@@ -102,7 +120,7 @@ app.post('api/telegram/autorize', (req, res) => {
 });
 
 //Обновление токена
-app.post('api/telegram/refresh', (req, res) => {
+app.post('/api/telegram/refresh', (req, res) => {
   const login = [req.body.login];
   connection.query('SELECT * FROM `User` WHERE Login = ?', login, (err, rows, fields) => {
     if (err) {
@@ -121,11 +139,12 @@ app.post('api/telegram/refresh', (req, res) => {
       res.status(400).json({ error: "Срок действия авторизации истёк" });
       return;
     };
+    const tokenData = new Date();
     const response = {
       accessToken: token(),
-      tokenExpire: new Date(tokenData.getTime() + 3 * 60000)
+      tokenExpire: new Date(tokenData.getTime() + 60000)
     };
-    const data = [expireData.accessToken, expireData.tokenExpire, req.body.login];
+    const data = [response.accessToken, response.tokenExpire, req.body.login];
     connection.query('UPDATE User SET AccessToken=?, TokenExpire=? WHERE Login=?', data, (err, rows, fields) => {
       if (err) {
         res.send(err);
@@ -136,7 +155,7 @@ app.post('api/telegram/refresh', (req, res) => {
   });
 });
 
-app.put('api/telegram/user-update', (req, res) => {
+app.put('/api/telegram/user-update', (req, res) => {
   const login = [req.header('login')];
   connection.query('SELECT * FROM `User` WHERE Login = ?', login, (err, rows, fields) => {
     if (err) {

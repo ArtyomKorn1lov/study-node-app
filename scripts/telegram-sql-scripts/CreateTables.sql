@@ -5,8 +5,10 @@ CREATE TABLE User (
         Login VARCHAR(50) NOT NULL,
 		Name VARCHAR(50) NULL,
         Password VARCHAR(256) NOT NULL,
+        AccessToken VARCHAR(256) NULL,
         RefreshToken VARCHAR(256) NULL,
-        TokenExpire DATETIME NULL
+        TokenExpire DATETIME NULL,
+        RefreshExpire DATETIME NULL
 );
 
 CREATE TABLE Message (
