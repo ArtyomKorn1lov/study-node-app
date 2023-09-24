@@ -16,12 +16,14 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
+//Рандомизация значения
 const rand = () => {
-  return Math.random().toString(36).substr(2); // remove `0.`
+  return Math.random().toString(36).substr(2);
 };
 
+//Сложение 2-х случайных величин
 const token = () => {
-  return rand() + rand(); // to make it longer
+  return rand() + rand();
 };
 
 //Генерация токена
@@ -39,13 +41,32 @@ const generateTokenData = (login, name) => {
 /* Контроллеры пользователей */
 //Получение списка пользователей для переписки
 app.get('/api/telegram/getUsers/:userId', (req, res) => {
-  let data = [req.params.userId];
-  connection.query('SELECT * FROM `User` WHERE Id != ?', data, (err, rows, fields) => {
+  const login = [req.header('login')];
+  connection.query('SELECT * FROM `User` WHERE Login = ?', login, (err, rows, fields) => {
     if (err) {
       res.send(err);
       throw err;
     };
-    res.send(rows);
+    if (!rows[rows.length - 1]) {
+      res.status(400).json({ error: "Ошибка доступа" });
+      return;
+    }
+    if (rows[rows.length - 1].AccessToken !== req.header('token')) {
+      res.status(400).json({ error: "Ошибка доступа" });
+      return;
+    }
+    if (rows[rows.length - 1].TokenExpire < new Date()) {
+      res.status(400).json({ error: "Срок действия авторизации истёк" });
+      return;
+    };
+    let data = [req.params.userId];
+    connection.query('SELECT * FROM `User` WHERE Id != ?', data, (err, rows, fields) => {
+      if (err) {
+        res.send(err);
+        throw err;
+      };
+      res.send(rows);
+    });
   });
 });
 
@@ -57,10 +78,18 @@ app.get('/api/telegram/getUserData', (req, res) => {
       res.send(err);
       throw err;
     };
-    if (rows[rows.length - 1].AccessToken !== req.header('token')) {
-      res.status(400).json({ error: "Нет доступа" });
+    if (!rows[rows.length - 1]) {
+      res.status(400).json({ error: "Ошибка доступа" });
       return;
     }
+    if (rows[rows.length - 1].AccessToken !== req.header('token')) {
+      res.status(400).json({ error: "Ошибка доступа" });
+      return;
+    }
+    if (rows[rows.length - 1].TokenExpire < new Date()) {
+      res.status(400).json({ error: "Срок действия авторизации истёк" });
+      return;
+    };
     res.send(rows[rows.length - 1]);
   });
 });
@@ -77,7 +106,7 @@ app.post('/api/telegram/register', (req, res) => {
       res.send(err);
       throw err;
     };
-    if (rows[rows.length - 1].Login === req.body.login) {
+    if (rows[rows.length - 1]) {
       res.status(400).json({ error: "Пользователь уже зарегистрирован с данным логином" });
       return;
     };
@@ -127,6 +156,10 @@ app.post('/api/telegram/refresh', (req, res) => {
       res.send(err);
       throw err;
     };
+    if (!rows[rows.length - 1]) {
+      res.status(400).json({ error: "Ошибка доступа" });
+      return;
+    }
     if (req.body.accessToken !== rows[rows.length - 1].AccessToken) {
       res.status(400).json({ error: "Ошибка доступа" });
       return;
@@ -142,7 +175,7 @@ app.post('/api/telegram/refresh', (req, res) => {
     const tokenData = new Date();
     const response = {
       accessToken: token(),
-      tokenExpire: new Date(tokenData.getTime() + 60000)
+      tokenExpire: new Date(tokenData.getTime() + 3 * 60000)
     };
     const data = [response.accessToken, response.tokenExpire, req.body.login];
     connection.query('UPDATE User SET AccessToken=?, TokenExpire=? WHERE Login=?', data, (err, rows, fields) => {
@@ -155,6 +188,7 @@ app.post('/api/telegram/refresh', (req, res) => {
   });
 });
 
+//Редактирование профиля
 app.put('/api/telegram/user-update', (req, res) => {
   const login = [req.header('login')];
   connection.query('SELECT * FROM `User` WHERE Login = ?', login, (err, rows, fields) => {
@@ -162,16 +196,24 @@ app.put('/api/telegram/user-update', (req, res) => {
       res.send(err);
       throw err;
     };
-    if (rows[rows.length - 1].AccessToken !== req.header('token')) {
-      res.status(400).json({ error: "Нет доступа" });
+    if (!rows[rows.length - 1]) {
+      res.status(400).json({ error: "Ошибка доступа" });
       return;
     }
+    if (rows[rows.length - 1].AccessToken !== req.header('token')) {
+      res.status(400).json({ error: "Ошибка доступа" });
+      return;
+    }
+    if (rows[rows.length - 1].TokenExpire < new Date()) {
+      res.status(400).json({ error: "Срок действия авторизации истёк" });
+      return;
+    };
     if (req.body.password !== req.body.repeat_password) {
       res.status(400).json({ error: "Пароли не совпадают" });
       return;
     };
-    const data = [req.body.login, req.body.name, req.body.password, req.body.login];
-    connection.query('UPDATE User SET Login=?, Name=?, Password=?, RefreshExpire=? WHERE Login=?', data, (err, rows, fields) => {
+    const data = [req.body.name, req.body.password, req.body.login];
+    connection.query('UPDATE User SET Name=?, Password=? WHERE Login=?', data, (err, rows, fields) => {
       if (err) {
         res.send(err);
         throw err;
@@ -190,10 +232,18 @@ app.get('/api/telegram/all/:userId/:senderId/', (req, res) => {
       res.send(err);
       throw err;
     };
-    if (rows[rows.length - 1].AccessToken !== req.header('token')) {
-      res.status(400).json({ error: "Нет доступа" });
+    if (!rows[rows.length - 1]) {
+      res.status(400).json({ error: "Ошибка доступа" });
       return;
     }
+    if (rows[rows.length - 1].AccessToken !== req.header('token')) {
+      res.status(400).json({ error: "Ошибка доступа" });
+      return;
+    }
+    if (rows[rows.length - 1].TokenExpire < new Date()) {
+      res.status(400).json({ error: "Срок действия авторизации истёк" });
+      return;
+    };
     let data = [req.params.userId, req.params.senderId, req.params.userId, req.params.senderId];
     connection.query('SELECT * FROM Message WHERE (AuthorId = ? AND SenderId = ?) OR (SenderId = ? AND AuthorId = ?) ORDER BY CREATED ASC, Id ASC', data, (err, rows, fields) => {
       if (err) {
@@ -213,10 +263,18 @@ app.post('/api/messages/add', (req, res) => {
       res.send(err);
       throw err;
     };
-    if (rows[rows.length - 1].AccessToken !== req.header('token')) {
-      res.status(400).json({ error: "Нет доступа" });
+    if (!rows[rows.length - 1]) {
+      res.status(400).json({ error: "Ошибка доступа" });
       return;
     }
+    if (rows[rows.length - 1].AccessToken !== req.header('token')) {
+      res.status(400).json({ error: "Ошибка доступа" });
+      return;
+    }
+    if (rows[rows.length - 1].TokenExpire < new Date()) {
+      res.status(400).json({ error: "Срок действия авторизации истёк" });
+      return;
+    };
     const curData = new Date();
     let data = [req.body.text, curData, curData, req.body.userId, req.body.senderId];
     connection.query('INSERT INTO Message (Text, CREATED, EDITED, AuthorId, SenderId) VALUES (?, ?, ?, ?, ?)', data, (err, rows, fields) => {
@@ -237,10 +295,18 @@ app.put('/api/messages/update', (req, res) => {
       res.send(err);
       throw err;
     };
-    if (rows[rows.length - 1].AccessToken !== req.header('token')) {
-      res.status(400).json({ error: "Нет доступа" });
+    if (!rows[rows.length - 1]) {
+      res.status(400).json({ error: "Ошибка доступа" });
       return;
     }
+    if (rows[rows.length - 1].AccessToken !== req.header('token')) {
+      res.status(400).json({ error: "Ошибка доступ" });
+      return;
+    }
+    if (rows[rows.length - 1].TokenExpire < new Date()) {
+      res.status(400).json({ error: "Срок действия авторизации истёк" });
+      return;
+    };
     const curData = new Date();
     let data = [req.body.text, curData, req.body.id];
     connection.query('UPDATE Message SET Text=?, EDITED=? WHERE Id=?', data, (err, rows, fields) => {
@@ -261,10 +327,18 @@ app.delete('/api/messages/delete/:id/', (req, res) => {
       res.send(err);
       throw err;
     };
-    if (rows[rows.length - 1].AccessToken !== req.header('token')) {
-      res.status(400).json({ error: "Нет доступа" });
+    if (!rows[rows.length - 1]) {
+      res.status(400).json({ error: "Ошибка доступа" });
       return;
     }
+    if (rows[rows.length - 1].AccessToken !== req.header('token')) {
+      res.status(400).json({ error: "Ошибка доступа" });
+      return;
+    }
+    if (rows[rows.length - 1].TokenExpire < new Date()) {
+      res.status(400).json({ error: "Срок действия авторизации истёк" });
+      return;
+    };
     let data = [req.params.id];
     connection.query('DELETE FROM Message WHERE Id=?', data, (err, rows, fields) => {
       if (err) {
